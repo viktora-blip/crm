@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deal CRM</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: monospace; font-size: 14px; background: #fff; color: #000; padding: 20px; }
+  h1 { font-size: 18px; margin-bottom: 20px; }
+  .section { margin-bottom: 24px; }
+  .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; border-bottom: 1px solid #000; padding-bottom: 4px; }
+  input, select, textarea { width: 100%; padding: 6px 8px; border: 1px solid #000; font-family: monospace; font-size: 13px; background: #fff; color: #000; margin-bottom: 8px; }
+  textarea { resize: vertical; min-height: 60px; }
+  button { padding: 7px 16px; border: 1px solid #000; background: #000; color: #fff; font-family: monospace; font-size: 13px; cursor: pointer; margin-right: 8px; }
+  button.secondary { background: #fff; color: #000; }
+  button:hover { opacity: 0.75; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; color: #555; }
+  .field { margin-bottom: 10px; }
+  .status-bar { font-size: 12px; color: #555; margin-bottom: 12px; min-height: 18px; }
+  .status-bar.err { color: #c00; }
+  .status-bar.ok { color: #070; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; border-bottom: 2px solid #000; padding: 6px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  td { padding: 6px 8px; border-bottom: 1px solid #ccc; vertical-align: top; }
+  tr:hover td { background: #f5f5f5; }
+  .badge { display: inline-block; padding: 2px 7px; border: 1px solid #000; font-size: 11px; }
+  .badge.contact { background: #fffacd; }
+  .badge.negotiation { background: #d4edda; }
+  .badge.deal { background: #000; color: #fff; }
+  .badge.dead { background: #ddd; color: #555; border-color: #999; }
+  .actions button { padding: 3px 8px; font-size: 11px; margin-right: 4px; }
+  .stats { display: flex; gap: 24px; margin-bottom: 20px; }
+  .stat-num { font-size: 28px; font-weight: bold; }
+  .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #555; }
+  .link-section { display: flex; gap: 8px; margin-bottom: 12px; }
+  .link-section input { margin-bottom: 0; flex: 1; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 50; }
+  .modal-overlay.open { display: flex; align-items: center; justify-content: center; }
+  .modal { background: #fff; border: 2px solid #000; padding: 24px; width: 520px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-size: 15px; margin-bottom: 16px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .note-cell { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .discount { font-size: 11px; color: #555; }
+  .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filters button { padding: 4px 12px; font-size: 12px; }
+  .filters button.active { background: #000; color: #fff; }
+  .filters button:not(.active) { background: #fff; color: #000; }
+  .empty { padding: 30px; text-align: center; color: #999; }
+  @media(max-width:600px) { .grid,.grid-3 { grid-template-columns: 1fr; } .stats { flex-wrap: wrap; gap: 12px; } }
+</style>
+</head>
+<body>
+
+<h1>Deal CRM</h1>
+
+<div class="stats" id="stats"></div>
+
+<div class="section">
+  <div class="section-title">Přidat deal ze Sreality</div>
+  <div class="link-section">
+    <input type="url" id="srealityUrl" placeholder="https://www.sreality.cz/detail/..." onkeydown="if(event.key==='Enter')parseFromUrl()">
+    <button id="parseBtn" onclick="parseFromUrl()">Načíst</button>
+  </div>
+  <div class="status-bar" id="parseStatus"></div>
+</div>
+
+<div class="section">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+    <div class="section-title" style="border:none;margin:0">Pipeline</div>
+    <button class="secondary" onclick="openModal(null)">+ Přidat ručně</button>
+  </div>
+  <div class="filters">
+    <button class="active" onclick="setFilter('all',this)">Vše</button>
+    <button onclick="setFilter('new',this)">Nový</button>
+    <button onclick="setFilter('contact',this)">Kontaktováno</button>
+    <button onclick="setFilter('negotiation',this)">Vyjednávání</button>
+    <button onclick="setFilter('deal',this)">Deal ✓</button>
+    <button onclick="setFilter('dead',this)">Mrtvý</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Adresa</th>
+        <th>Kontakt</th>
+        <th>Inz. cena</th>
+        <th>Stav</th>
+        <th>Datum</th>
+        <th>Poznámka</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">Nový deal</h2>
+    <div class="field"><label>Adresa / název</label><input id="f-addr" placeholder="např. Vinohrady, 2+1, 65m²"></div>
+    <div class="field"><label>URL inzerátu</label><input id="f-url"></div>
+    <div class="grid">
+      <div class="field"><label>Kontakt (jméno)</label><input id="f-contact" placeholder="Jan Novák"></div>
+      <div class="field"><label>Telefon</label><input id="f-phone" placeholder="603 xxx xxx"></div>
+    </div>
+    <div class="grid">
+      <div class="field"><label>Inzerovaná cena (Kč)</label><input id="f-price" type="number" placeholder="3500000"></div>
+      <div class="field"><label>Cílová cena (Kč)</label><input id="f-target" type="number" placeholder="2800000"></div>
+    </div>
+    <div class="grid-3">
+      <div class="field"><label>Dispozice</label><input id="f-disp" placeholder="2+1"></div>
+      <div class="field"><label>Plocha (m²)</label><input id="f-area" type="number" placeholder="65"></div>
+      <div class="field"><label>Lokalita</label><input id="f-loc" placeholder="Praha 2"></div>
+    </div>
+    <div class="field"><label>Stav</label>
+      <select id="f-status">
+        <option value="new">Nový</option>
+        <option value="contact">Kontaktováno</option>
+        <option value="negotiation">Vyjednávání</option>
+        <option value="deal">Deal ✓</option>
+        <option value="dead">Mrtvý</option>
+      </select>
+    </div>
+    <div class="field"><label>Zdroj</label><input id="f-source" placeholder="Sreality / Bezrealitky / FB"></div>
+    <div class="field"><label>Poznámka / výstup z callu</label><textarea id="f-note" placeholder="Co řekl prodejce, motivace, námitky..."></textarea></div>
+    <div class="modal-actions">
+      <button onclick="saveDeal()">Uložit</button>
+      <button class="secondary" onclick="closeModal()">Zrušit</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STATUSES = {
+  new: { label: 'Nový', cls: 'new' },
+  contact: { label: 'Kontaktováno', cls: 'contact' },
+  negotiation: { label: 'Vyjednávání', cls: 'negotiation' },
+  deal: { label: 'Deal ✓', cls: 'deal' },
+  dead: { label: 'Mrtvý', cls: 'dead' }
+};
+
+let deals = JSON.parse(localStorage.getItem('crm_deals') || '[]');
+let editIdx = null;
+let activeFilter = 'all';
+
+function save() { localStorage.setItem('crm_deals', JSON.stringify(deals)); }
+function fmt(n) { return n ? Number(n).toLocaleString('cs-CZ') + ' Kč' : '—'; }
+
+function setStatus(msg, type) {
+  const el = document.getElementById('parseStatus');
+  el.textContent = msg;
+  el.className = 'status-bar' + (type ? ' ' + type : '');
+}
+
+async function parseFromUrl() {
+  const url = document.getElementById('srealityUrl').value.trim();
+  if (!url || !url.includes('sreality.cz')) { setStatus('Vlož platný Sreality link.', 'err'); return; }
+
+  setStatus('Načítám inzerát...');
+  document.getElementById('parseBtn').disabled = true;
+
+  try {
+    const resp = await fetch('/api/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+
+    const parsed = await resp.json();
+    if (parsed.error) throw new Error(parsed.error);
+
+    document.getElementById('f-addr').value = parsed.addr || '';
+    document.getElementById('f-price').value = parsed.price || '';
+    document.getElementById('f-disp').value = parsed.disp || '';
+    document.getElementById('f-area').value = parsed.area || '';
+    document.getElementById('f-loc').value = parsed.loc || '';
+    document.getElementById('f-note').value = parsed.description || '';
+    document.getElementById('f-url').value = url;
+    document.getElementById('f-source').value = 'Sreality';
+    document.getElementById('srealityUrl').value = '';
+
+    setStatus('Načteno — zkontroluj a ulož.', 'ok');
+    openModal(null);
+
+  } catch (e) {
+    setStatus('Chyba: ' + e.message, 'err');
+  } finally {
+    document.getElementById('parseBtn').disabled = false;
+  }
+}
+
+function openModal(idx) {
+  editIdx = idx;
+  const ids = ['f-addr','f-url','f-contact','f-phone','f-price','f-target','f-disp','f-area','f-loc','f-source','f-note'];
+  if (idx !== null) {
+    const d = deals[idx];
+    document.getElementById('modalTitle').textContent = 'Upravit deal';
+    ids.forEach(id => { const k = id.replace('f-',''); document.getElementById(id).value = d[k] || ''; });
+    document.getElementById('f-status').value = d.status || 'new';
+  } else {
+    document.getElementById('modalTitle').textContent = 'Nový deal';
+    ids.forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-status').value = 'new';
+  }
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+function saveDeal() {
+  const addr = document.getElementById('f-addr').value.trim();
+  if (!addr) { alert('Zadej adresu.'); return; }
+  const d = {
+    addr,
+    url: document.getElementById('f-url').value.trim(),
+    contact: document.getElementById('f-contact').value.trim(),
+    phone: document.getElementById('f-phone').value.trim(),
+    price: document.getElementById('f-price').value,
+    target: document.getElementById('f-target').value,
+    disp: document.getElementById('f-disp').value.trim(),
+    area: document.getElementById('f-area').value,
+    loc: document.getElementById('f-loc').value.trim(),
+    status: document.getElementById('f-status').value,
+    source: document.getElementById('f-source').value.trim(),
+    note: document.getElementById('f-note').value.trim(),
+    date: new Date().toLocaleDateString('cs-CZ')
+  };
+  if (editIdx !== null) { deals[editIdx] = d; } else { deals.unshift(d); }
+  save(); render(); closeModal();
+}
+
+function deleteDeal(idx) {
+  if (!confirm('Smazat deal?')) return;
+  deals.splice(idx, 1); save(); render();
+}
+
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function render() {
+  const c = { new:0, contact:0, negotiation:0, deal:0, dead:0 };
+  deals.forEach(d => c[d.status] = (c[d.status] || 0) + 1);
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="stat-num">${deals.length}</div><div class="stat-label">Celkem</div></div>
+    <div class="stat"><div class="stat-num">${c.negotiation}</div><div class="stat-label">Vyjednávání</div></div>
+    <div class="stat"><div class="stat-num">${c.deal}</div><div class="stat-label">Uzavřené</div></div>
+    <div class="stat"><div class="stat-num">${deals.length ? Math.round(c.deal/deals.length*100) : 0}%</div><div class="stat-label">Conversion</div></div>`;
+
+  const visible = activeFilter === 'all' ? deals : deals.filter(d => d.status === activeFilter);
+  const tbody = document.getElementById('tbody');
+  if (!visible.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Žádné dealy.</td></tr>'; return; }
+  tbody.innerHTML = visible.map(d => {
+    const ri = deals.indexOf(d);
+    const s = STATUSES[d.status] || STATUSES.new;
+    const disc = d.price && d.target ? Math.round((1 - d.target/d.price)*100) : null;
+    const link = d.url ? `<a href="${d.url}" target="_blank" style="color:#000;font-size:11px">↗ link</a>` : '';
+    return `<tr>
+      <td><strong>${d.addr||'—'}</strong>${d.loc?'<br><span style="font-size:11px;color:#555">'+d.loc+'</span>':''}${d.disp?' · '+d.disp:''}${d.area?', '+d.area+'m²':''}<br>${link}</td>
+      <td>${d.contact||'—'}${d.phone?'<br><span style="font-size:11px">'+d.phone+'</span>':''}</td>
+      <td>${fmt(d.price)}${disc?'<br><span class="discount">cíl: '+fmt(d.target)+' (-'+disc+'%)</span>':''}</td>
+      <td><span class="badge ${s.cls}">${s.label}</span></td>
+      <td style="font-size:11px;color:#555">${d.date||'—'}</td>
+      <td class="note-cell" title="${d.note||''}">${d.note||'—'}</td>
+      <td class="actions">
+        <button class="secondary" onclick="openModal(${ri})">upravit</button>
+        <button class="secondary" onclick="deleteDeal(${ri})">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('modalOverlay').addEventListener('click', function(e) { if(e.target===this) closeModal(); });
+render();
+</script>
+</body>
+</html>
