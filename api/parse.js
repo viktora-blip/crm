@@ -8,23 +8,21 @@ export default async function handler(req, res) {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'Missing url' });
 
-  const prompt = `Use web_search to fetch this Sreality.cz property listing and extract data.
+  const prompt = `Fetch this Sreality.cz property listing URL and extract data.
 URL: ${url}
 Reply with ONLY a raw JSON object, no markdown, no text before or after:
 {"addr":"address or title","price":3500000,"disp":"2+1","area":65,"loc":"Praha 2","description":"first 150 chars of description"}
 Use null for missing fields. price must be integer CZK.`;
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01'
+      'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      'HTTP-Referer': 'https://crm-omega-henna.vercel.app',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 800,
-      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      model: 'meta-llama/llama-3.3-70b-instruct:free',
       messages: [{ role: 'user', content: prompt }]
     })
   });
@@ -32,10 +30,14 @@ Use null for missing fields. price must be integer CZK.`;
   const data = await response.json();
   if (data.error) return res.status(500).json({ error: data.error.message });
 
-  const text = (data.content || []).map(b => b.type === 'text' ? b.text : '').join('');
+  const text = data.choices?.[0]?.message?.content || '';
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) return res.status(422).json({ error: 'Nepodařilo se načíst data z inzerátu.' });
 
-  const parsed = JSON.parse(match[0]);
-  res.status(200).json(parsed);
+  try {
+    const parsed = JSON.parse(match[0]);
+    res.status(200).json(parsed);
+  } catch (e) {
+    res.status(422).json({ error: 'Chyba při parsování dat.' });
+  }
 }
